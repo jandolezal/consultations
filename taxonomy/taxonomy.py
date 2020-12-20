@@ -7,6 +7,8 @@ Uses params publicationId, size and page to iterate over all feedback
 
 import csv
 import json
+import random
+import time
 import requests
 
 headers = {
@@ -16,15 +18,15 @@ headers = {
 
 def get_total_pages(url, params):
     # Get total number of pages
-    r = requests.get(url, params=params, headers=headers, timeout=5)
+    r = requests.get(url, params=params, headers=headers, timeout=12)
     if r.status_code == requests.codes.ok:
         json_resp = json.loads(r.text)
-        pages = json_resp['page']['totalPages']
-        return pages
+        total_pages = json_resp['page']['totalPages']
+        return total_pages
     return 0
 
 
-def process_response(response):
+def reduce_attachments(response):
     # Extract only first attachment url and its name
     try:
         att_base_url = 'https://ec.europa.eu/info/law/better-regulation/api/download/'
@@ -43,14 +45,13 @@ def process_response(response):
     response.pop('_links', None)
 
 
-def parse_feedback(url, params, pages):
+def parse_feedback(url, params, total_pages):
     feedback = []
 
     # By defaul each page has 20 items (feedbacks). We use 50 in scrape
-    for page in range(pages):
-
-        params.update({'page': page})
-        r = requests.get(url, params=params, headers=headers, timeout=5)
+    for page_number in range(total_pages):
+        params.update({'page': page_number})
+        r = requests.get(url, params=params, headers=headers, timeout=15)
 
         if r.status_code == requests.codes.ok:
             json_resp = json.loads(r.text)
@@ -61,14 +62,18 @@ def parse_feedback(url, params, pages):
             # Each response is a dictionary
             for response in current_feedback:
                 # Processing dictionary within the list
-                process_response(response)
+                reduce_attachments(response)
 
             feedback.extend(current_feedback)
-            print(f'Current page: {page}')
+            print(f'Current page: {page_number}')
             print(f"Feedbacks per page: {params['size']}")
             print(f'Total feedbacks so far: {len(feedback)}')
         else:
-            print('No response. Skipping this page')
+            with open('skipped_pages.txt', 'a') as fout:
+                fout.write(page_number + '\n')
+
+        if len(feedback) % 400 == 0:
+            time.sleep(random.randint(1, 4))
 
     return feedback
 
@@ -86,7 +91,7 @@ def to_csv(feedback, file):
 def scrape(url, id, csv_out):
     params = {
         'publicationId': id,
-        'size': 50,
+        'size': 20,
         }
     total_pages = get_total_pages(url, params)
     feedback = parse_feedback(url, params, total_pages)

@@ -66,10 +66,10 @@ def to_csv(feedback, file):
 
 
 def scrape(URL, id):
-        params = dict(publicationId=id)
-        total_pages = get_total_pages(URL, params)
-        feedback = parse_feedback(URL, params, total_pages)
-        to_csv(feedback, 'red.csv')
+    params = dict(publicationId=id)
+    total_pages = get_total_pages(URL, params)
+    feedback = parse_feedback(URL, params, total_pages)
+    to_csv(feedback, 'red.csv')
 
 
 if __name__ == '__main__':
